@@ -1,11 +1,18 @@
 from src.parsers.greenhouse_parser import GreenhouseParser
 from src.filtering.job_filter import JobFilter
 from src.scoring.relevance_engine import RelevanceEngine
+from src.notifications.telegram_notifier import TelegramNotifier
 import json
+import os
+
 
 def load_companies():
-    with open("src/config/companies.json", "r") as f:
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.join(base_dir, "..", "config", "companies.json")
+
+    with open(config_path, "r") as f:
         return json.load(f)
+
 
 def run_pipeline():
     companies = load_companies()
@@ -18,16 +25,12 @@ def run_pipeline():
 
     for company in companies:
         parser = GreenhouseParser(company)
-
         jobs = parser.run()
 
-        # ✅ DEBUG LINE (your request added properly)
         print(f"[DEBUG] Raw jobs from {company['company']}: {len(jobs)}")
 
-        # store raw jobs properly
         all_jobs.extend(jobs)
 
-        # quick sanity sample
         if jobs:
             print("[DEBUG SAMPLE]", jobs[0].title)
 
@@ -42,19 +45,41 @@ def run_pipeline():
             job.matched_keywords = score_data["reasons"]
 
             filtered_jobs.append(job)
+            
+            print("[DEBUG SCORE CHECK]")
+            for j in filtered_jobs:
+                print(j.title, j.relevancy_score, type(j.relevancy_score))
 
     print(f"\nRAW JOBS: {len(all_jobs)}")
     print(f"FILTERED JOBS: {len(filtered_jobs)}\n")
 
-    for job in filtered_jobs[:10]:
-        print({
-            "company": job.company,
-            "title": job.title,
-            "location": job.location,
-            "score": job.relevancy_score,
-            "reasons": job.matched_keywords[:3],
-            "url": job.job_url
-        })
+    # 🔥 EVERYTHING BELOW MUST BE INSIDE FUNCTION
+
+    filtered_jobs.sort(key=lambda x: x.relevancy_score, reverse=True)
+
+    top_jobs = [job for job in filtered_jobs if job.relevancy_score >= 6]
+
+    def format_jobs(jobs):
+        if not jobs:
+            return "No jobs met the threshold today (≥ 6)."
+
+        msg = "🔥 *High-Quality Job Matches (Score ≥ 6)*\n\n"
+
+        for i, job in enumerate(jobs, 1):
+            msg += (
+                f"{i}. {job.title}\n"
+                f"🏢 {job.company}\n"
+                f"📍 {job.location}\n"
+                f"⭐ Score: {job.relevancy_score}\n"
+                f"🔗 {job.job_url}\n\n"
+            )
+
+        return msg
+
+    notifier = TelegramNotifier()
+    message = format_jobs(top_jobs)
+    notifier.send_message(message)
+
 
 if __name__ == "__main__":
     run_pipeline()
