@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any
 
-from models.job import Job
+from src.models.job import Job
 
 
 class BaseParser(ABC):

@@ -1,4 +1,4 @@
-from handlers.job_runner import run_pipeline
+from src.handlers.job_runner import run_pipeline
 
 
 def lambda_handler(event, context):

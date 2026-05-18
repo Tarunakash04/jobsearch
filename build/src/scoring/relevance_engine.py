@@ -1,4 +1,4 @@
-from scoring.job_classifier import JobClassifier
+from src.scoring.job_classifier import JobClassifier
 
 
 class RelevanceEngine:

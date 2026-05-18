@@ -1,9 +1,9 @@
 import requests
 from typing import List, Dict, Any
 
-from parsers.base_parser import BaseParser
-from models.job import Job
-from utils.hashing import generate_job_id
+from src.parsers.base_parser import BaseParser
+from src.models.job import Job
+from src.utils.hashing import generate_job_id
 
 
 class GreenhouseParser(BaseParser):
