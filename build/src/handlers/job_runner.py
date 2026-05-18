@@ -6,7 +6,6 @@ import json
 import os
 from src.storage.dynamodb_client import DynamoDBClient
 
-from temp_check.src.models import job
 
 db = DynamoDBClient()
 
@@ -55,9 +54,6 @@ def run_pipeline():
                 continue
 
             filtered_jobs.append(job)
-
-            print("\n[JOB OBJECT DEBUG]")
-            print(vars(job))
             
             print("[DEBUG SCORE CHECK]")
             for j in filtered_jobs:
