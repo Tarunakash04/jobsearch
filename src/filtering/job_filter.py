@@ -4,7 +4,10 @@ from src.models.job import Job
 class JobFilter:
 
     def __init__(self):
-        # hard reject signals (fast elimination)
+
+        # ---------------------------------
+        # HARD REJECT SIGNALS
+        # ---------------------------------
         self.reject_keywords = [
             "sales",
             "account executive",
@@ -18,7 +21,22 @@ class JobFilter:
             "customer success"
         ]
 
-        # must-keep signals (cloud direction)
+        # ---------------------------------
+        # SENIORITY REJECTION
+        # ---------------------------------
+        self.seniority_keywords = [
+            "senior",
+            "staff",
+            "principal",
+            "lead",
+            "director",
+            "architect",
+            "head"
+        ]
+
+        # ---------------------------------
+        # MUST-KEEP CLOUD SIGNALS
+        # ---------------------------------
         self.keep_keywords = [
             "cloud",
             "aws",
@@ -29,78 +47,83 @@ class JobFilter:
             "network",
             "security",
             "platform",
-            "support engineer"
+            "support engineer",
+            "site reliability",
+            "backend",
+            "systems",
+            "infra",
+            "cybersecurity",
+            "kubernetes",
+            "docker",
+            "observability"
         ]
 
+        # ---------------------------------
+        # FRESHER SIGNALS
+        # ---------------------------------
+        self.fresher_keywords = [
+            "intern",
+            "internship",
+            "new grad",
+            "graduate",
+            "entry level",
+            "associate",
+            "junior",
+            "early career",
+            "fresher"
+        ]
+
+    # ---------------------------------
+    # LOCATION FILTER (STRICT CHENNAI ONLY)
+    # ---------------------------------
     def is_location_allowed(self, location: str) -> bool:
+
         if not location:
             return False
 
-        loc = location.lower()
+        loc = location.lower().replace(" ", "")
 
-        # India cities
-        india_keywords = [
+        allowed_tokens = [
+            "chennai",
+            "madras",
             "bangalore",
             "bengaluru",
-            "chennai",
-            "madras"
+            "blr",
+            "bengaluruurban"
         ]
 
-        # allowed remote types
-        safe_remote_keywords = [
-            "remote india",
-            "india remote",
-            "remote (india)",
-            "global remote",
-            "worldwide",
-            "anywhere"
-        ]
+        return any(token in loc for token in allowed_tokens)
 
-        # blocked remote regions
-        blocked_remote_keywords = [
-            "united states",
-            "usa",
-            "us",
-            "canada",
-            "uk",
-            "europe"
-        ]
-
-        # 1. direct India city match
-        if any(k in loc for k in india_keywords):
-            return True
-
-        # 2. explicitly India/global safe remote
-        if any(k in loc for k in safe_remote_keywords):
-            return True
-
-        # 3. block country-specific remote (US/Canada etc.)
-        if "remote" in loc and any(k in loc for k in blocked_remote_keywords):
-            return False
-
-        # 4. plain "remote" fallback (unknown remote → allow for now)
-        if "remote" in loc:
-            return True
-
-        return False
-
+    # ---------------------------------
+    # MAIN FILTER ENGINE
+    # ---------------------------------
     def is_relevant(self, job: Job):
 
         text = f"{job.title} {job.location or ''}".lower()
 
-        # 1. LOCATION FILTER (FIRST GATE)
+        # 1. LOCATION FILTER
         if not self.is_location_allowed(job.location):
-            return False, "Location not allowed"
+            return False, "Location not Chennai"
 
-        # 2. HARD REJECT
+        # 2. SENIORITY FILTER
+        for keyword in self.seniority_keywords:
+            if keyword in text:
+                return False, f"Senior role filtered: {keyword}"
+
+        # 3. HARD REJECT FILTER
         for keyword in self.reject_keywords:
             if keyword in text:
                 return False, f"Rejected due to keyword: {keyword}"
 
-        # 3. SOFT ACCEPT (positive signal)
+        # 4. FRESHER BOOST
+        for keyword in self.fresher_keywords:
+            if keyword in text:
+                return True, f"Matched fresher signal: {keyword}"
+
+        # 5. CLOUD / INFRA SIGNALS
         for keyword in self.keep_keywords:
             if keyword in text:
                 return True, f"Matched cloud signal: {keyword}"
 
-        # 4. DEFAULT REJECT
+        # 6. DEFAULT REJECT
         return False, "No cloud relevance signals found"

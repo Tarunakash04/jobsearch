@@ -93,9 +93,12 @@ def run_pipeline():
     if top_jobs:
         notifier.send_message(message)
 
-        # SAVE ONLY AFTER SUCCESSFUL SEND
-        for job in top_jobs:
-            db.save_job(job)
+    # SAVE ONLY AFTER SUCCESSFUL SEND
+    for job in top_jobs:
+        db.save_job(job)
+
+    else:
+        notifier.send_message("⚠️ No high-quality jobs found today (score ≥ 6).")
 
 if __name__ == "__main__":
     run_pipeline()

@@ -1,6 +1,98 @@
 [
   {
-    "company": "Stripe",
-    "slug": "stripe"
-  }
+    "company": "Postman",
+    "ats": "greenhouse",
+    "slug": "postman"
+  },
+  {
+    "company": "Harness",
+    "ats": "greenhouse",
+    "slug": "harness"
+  },
+  {
+    "company": "Grafana Labs",
+    "ats": "greenhouse",
+    "slug": "grafanalabs"
+  },
+  {
+    "company": "HashiCorp",
+    "ats": "greenhouse",
+    "slug": "hashicorp"
+  },
+  {
+    "company": "Elastic",
+    "ats": "greenhouse",
+    "slug": "elastic"
+  },
+  {
+    "company": "Confluent",
+    "ats": "greenhouse",
+    "slug": "confluent"
+  },
+  {
+    "company": "Databricks",
+    "ats": "greenhouse",
+    "slug": "databricks"
+  },
+  {
+    "company": "Rubrik",
+    "ats": "greenhouse",
+    "slug": "rubrik"
+  },
+  {
+    "company": "Cohesity",
+    "ats": "greenhouse",
+    "slug": "cohesity"
+  },
+  {
+    "company": "Cockroach Labs",
+    "ats": "greenhouse",
+    "slug": "cockroachlabs"
+  },
+  {
+    "company": "MongoDB",
+    "ats": "greenhouse",
+    "slug": "mongodb"
+  },
+  {
+    "company": "Pine Labs",
+    "ats": "greenhouse",
+    "slug": "pinelabs"
+  },
+  {
+    "company": "Meesho",
+    "ats": "greenhouse",
+    "slug": "meesho"
+  },
+  {
+    "company": "Razorpay",
+    "ats": "greenhouse",
+    "slug": "razorpay"
+  },
+  {
+    "company": "BrowserStack",
+    "ats": "greenhouse",
+    "slug": "browserstack"
+  },
+
+  {
+    "company": "Striim",
+    "ats": "greenhouse",
+    "slug": "striiminc"
+  },
+    {
+        "company": "TD SYNNEX",
+        "ats": "workday",
+        "url": "https://synnex.wd5.myworkdayjobs.com/wday/cxs/synnex/tdsynnexcareers/jobs"
+    },
+    {
+        "company": "Trimble",
+        "ats": "workday",
+        "url": "https://trimble.wd1.myworkdayjobs.com/wday/cxs/trimble/TrimbleCareers/jobs"
+    },
+    {
+        "company": "Ford",
+        "ats": "workday",
+        "url": "https://ford.wd1.myworkdayjobs.com/wday/cxs/ford/External_Career_Site/jobs"
+    }
 ]

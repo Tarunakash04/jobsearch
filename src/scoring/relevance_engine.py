@@ -21,8 +21,8 @@ class RelevanceEngine:
         # ----------------------------
 
         if domain == "CLOUD_CORE":
-            score += 7
-            reasons.append("+7 cloud core domain")
+            score += 6
+            reasons.append("+6 cloud core domain")
 
         elif domain == "ENGINEERING":
             score += 4
@@ -33,8 +33,8 @@ class RelevanceEngine:
             reasons.append("+3 platform domain")
 
         elif domain == "UNKNOWN":
-            score += 2
-            reasons.append("+2 unknown domain")
+            score -= 2
+            reasons.append("-2 unknown domain")
 
         elif domain == "NOISE":
             score -= 10
@@ -93,7 +93,10 @@ class RelevanceEngine:
         # FINAL BOUNDING
         # ----------------------------
 
-        score = max(1, min(10, score))
+        if score < 1:
+            score = 1
+        elif score > 10:
+            score = 10
 
         return {
             "score": score,
