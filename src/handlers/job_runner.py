@@ -1,5 +1,4 @@
-from src.parsers.greenhouse_parser import GreenhouseParser
-from src.parsers.workday_parser import WorkdayParser
+from src.parsers.firecrawl_parser import FirecrawlParser
 from src.filtering.job_filter import JobFilter
 from src.scoring.relevance_engine import RelevanceEngine
 from src.notifications.telegram_notifier import TelegramNotifier
@@ -16,8 +15,15 @@ db = DynamoDBClient()
 # LOAD COMPANIES CONFIG
 # -----------------------------
 def load_companies():
+
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(base_dir, "..", "config", "companies.json")
+
+    config_path = os.path.join(
+        base_dir,
+        "..",
+        "config",
+        "companies.json"
+    )
 
     with open(config_path, "r") as f:
         return json.load(f)
@@ -32,19 +38,33 @@ def normalize_job(job, company_name, ats_type):
         return job
 
     return Job(
-        job_id=job.get("externalPath"),
-        external_job_id=(job.get("bulletFields") or [""])[0],
+
+        job_id=job.get("job_url"),
+
+        external_job_id=job.get("job_url"),
+
         company=company_name,
+
         source_ats=ats_type,
+
         title=job.get("title"),
-        location=job.get("locationsText"),
-        job_url=job.get("externalPath"),
-        posted_date=job.get("postedOn"),
+
+        location=job.get("location"),
+
+        job_url=job.get("job_url"),
+
+        posted_date=job.get("posted_date"),
+
         experience_text=None,
+
         short_description=None,
+
         skills=[],
+
         relevancy_score=0,
+
         matched_keywords=[],
+
         scraped_at=""
     )
 
@@ -57,62 +77,101 @@ def run_pipeline():
     companies = load_companies()
 
     filter_engine = JobFilter()
+
     scorer = RelevanceEngine()
 
     all_jobs = []
+
     filtered_jobs = []
+
     failed_companies = []
 
+    # -----------------------------
+    # LOOP THROUGH COMPANIES
+    # -----------------------------
     for company in companies:
 
         try:
+
             ats_type = company.get("ats", "").lower()
 
-            if ats_type == "greenhouse":
-                parser = GreenhouseParser(company)
-            elif ats_type == "workday":
-                parser = WorkdayParser(company)
-            else:
-                print(f"[WARNING] Unknown ATS: {ats_type}")
+            # -----------------------------
+            # ONLY FIRECRAWL SUPPORTED
+            # -----------------------------
+            if ats_type != "firecrawl":
+
+                print(f"[WARNING] Unsupported ATS: {ats_type}")
+
                 continue
+
+            # -----------------------------
+            # PARSER
+            # -----------------------------
+            parser = FirecrawlParser(company)
 
             jobs = parser.run()
 
             print(f"\n[DEBUG] {company['company']} RAW JOBS: {len(jobs)}")
+
             if jobs:
                 print("[DEBUG SAMPLE]", jobs[0])
 
             all_jobs.extend(jobs)
 
+            # -----------------------------
+            # PROCESS JOBS
+            # -----------------------------
             for raw_job in jobs:
 
-                job = normalize_job(raw_job, company["company"], ats_type)
+                job = normalize_job(
+                    raw_job,
+                    company["company"],
+                    ats_type
+                )
 
-                # 1. LOCATION FILTER
+                # -----------------------------
+                # LOCATION FILTER
+                # -----------------------------
                 if not filter_engine.is_location_allowed(job.location):
                     continue
 
-                # 2. DEDUPE EARLY
-                if db.job_exists(job.job_url):
-                    continue
-
-                # 3. FILTER ENGINE
+                # -----------------------------
+                # RELEVANCE FILTER
+                # -----------------------------
                 allowed, reason = filter_engine.is_relevant(job)
+
                 if not allowed:
                     continue
 
-                # 4. SCORING
+                # -----------------------------
+                # SCORE
+                # -----------------------------
                 score_data = scorer.score(job)
 
                 job.relevancy_score = score_data["score"]
+
                 job.matched_keywords = score_data["reasons"]
 
-                print(f"[DEBUG SCORE] {job.title} -> {job.relevancy_score}")
+                print(
+                    f"[DEBUG SCORE] "
+                    f"{job.title} -> {job.relevancy_score}"
+                )
+
+                # -----------------------------
+                # DEDUPE
+                # -----------------------------
+                if db.job_exists(job.job_url):
+                    continue
 
                 filtered_jobs.append(job)
 
         except Exception as e:
-            print(f"[ERROR] Failed for {company['company']}: {str(e)}")
+
+            print(
+                f"[ERROR] Failed for "
+                f"{company['company']}: {str(e)}"
+            )
+
             failed_companies.append({
                 "company": company["company"],
                 "error": str(e)
@@ -122,33 +181,54 @@ def run_pipeline():
     # SUMMARY
     # -----------------------------
     print(f"\nRAW JOBS: {len(all_jobs)}")
-    print(f"FILTERED JOBS (pre-score): {len(filtered_jobs)}")
+
+    print(
+        f"FILTERED JOBS "
+        f"(pre-final gate): {len(filtered_jobs)}"
+    )
 
     # -----------------------------
     # SORT
     # -----------------------------
-    filtered_jobs.sort(key=lambda x: x.relevancy_score, reverse=True)
+    filtered_jobs.sort(
+        key=lambda x: x.relevancy_score,
+        reverse=True
+    )
 
     # -----------------------------
     # SCORE DEBUG
     # -----------------------------
     print("\n[DEBUG SCORE DISTRIBUTION]")
+
     for j in filtered_jobs:
-        print(j.title, j.location, j.relevancy_score)
+        print(
+            j.title,
+            j.location,
+            j.relevancy_score
+        )
 
     # -----------------------------
-    # FINAL FILTER (THIS IS FIXED)
+    # FINAL THRESHOLD
     # -----------------------------
-    final_jobs = [j for j in filtered_jobs if j.relevancy_score >= 6]
+    THRESHOLD = 4
+
+    final_jobs = [
+        j for j in filtered_jobs
+        if j.relevancy_score >= THRESHOLD
+    ]
 
     # -----------------------------
     # FINAL DEBUG
     # -----------------------------
     print("\n[DEBUG FINAL COUNT]", len(final_jobs))
-    print("[DEBUG FINAL IDS]", [j.job_id for j in final_jobs])
+
+    print(
+        "[DEBUG FINAL IDS]",
+        [j.job_id for j in final_jobs]
+    )
 
     # -----------------------------
-    # FORMAT MESSAGE
+    # FORMAT TELEGRAM MESSAGE
     # -----------------------------
     def format_jobs(jobs):
 
@@ -158,6 +238,7 @@ def run_pipeline():
         msg = "🔥 High-Quality Job Matches\n\n"
 
         for i, job in enumerate(jobs, 1):
+
             msg += (
                 f"{i}. {job.title}\n"
                 f"🏢 {job.company}\n"
@@ -174,10 +255,11 @@ def run_pipeline():
     notifier = TelegramNotifier()
 
     message = format_jobs(final_jobs)
+
     notifier.send_message(message)
 
     # -----------------------------
-    # DYNAMODB SAVE
+    # SAVE TO DYNAMODB
     # -----------------------------
     for job in final_jobs:
         db.save_job(job)
@@ -186,4 +268,5 @@ def run_pipeline():
 
 
 if __name__ == "__main__":
+
     run_pipeline()

@@ -25,38 +25,44 @@ class JobFilter:
         # SENIORITY REJECTION
         # ---------------------------------
         self.seniority_keywords = [
-            "senior",
-            "staff",
-            "principal",
-            "lead",
-            "director",
-            "architect",
-            "head"
-        ]
+        "director",
+        "head",
+        "vp",
+        "vice president"
+    ]
 
         # ---------------------------------
         # MUST-KEEP CLOUD SIGNALS
         # ---------------------------------
         self.keep_keywords = [
-            "cloud",
-            "aws",
-            "devops",
-            "sre",
-            "linux",
-            "infrastructure",
-            "network",
-            "security",
-            "platform",
-            "support engineer",
-            "site reliability",
-            "backend",
-            "systems",
-            "infra",
-            "cybersecurity",
-            "kubernetes",
-            "docker",
-            "observability"
-        ]
+        "cloud",
+        "aws",
+        "azure",
+        "gcp",
+        "devops",
+        "sre",
+        "site reliability",
+        "platform",
+        "infrastructure",
+        "infra",
+        "linux",
+        "network",
+        "security",
+        "cybersecurity",
+        "cloud engineer",
+        "cloud support",
+        "systems engineer",
+        "production engineer",
+        "operations",
+        "technical support",
+        "observability",
+        "kubernetes",
+        "docker",
+        "terraform",
+        "automation",
+        "iac",
+        "monitoring"
+    ]
 
         # ---------------------------------
         # FRESHER SIGNALS
@@ -85,12 +91,29 @@ class JobFilter:
 
         allowed_tokens = [
             "chennai",
-            "madras",
+            "madras"
+        ]
+
+        blocked_tokens = [
+            "remote",
             "bangalore",
             "bengaluru",
             "blr",
-            "bengaluruurban"
+            "hyderabad",
+            "pune",
+            "mumbai",
+            "delhi",
+            "gurgaon",
+            "gurugram",
+            "noida",
+            "kolkata",
+            "kochi",
+            "ahmedabad"
         ]
+
+        # reject unwanted cities first
+        if any(token in loc for token in blocked_tokens):
+            return False
 
         return any(token in loc for token in allowed_tokens)
 
