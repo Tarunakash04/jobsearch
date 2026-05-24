@@ -1,8 +1,8 @@
 from firecrawl import FirecrawlApp
 from dotenv import load_dotenv
+
 import os
 import re
-import json
 
 load_dotenv()
 
@@ -10,6 +10,7 @@ load_dotenv()
 class FirecrawlParser:
 
     def __init__(self, company):
+
         self.company = company
         self.url = company["url"]
 
@@ -17,80 +18,55 @@ class FirecrawlParser:
             api_key=os.getenv("FIRECRAWL_API_KEY")
         )
 
-    def extract_json_ld(self, markdown):
-        """
-        Try to extract SmartRecruiters structured JSON if present
-        """
-        json_blocks = re.findall(
-            r"<script type=\"application/ld\+json\">(.*?)</script>",
-            markdown,
-            re.DOTALL
-        )
-
-        jobs = []
-
-        for block in json_blocks:
-            try:
-                data = json.loads(block.strip())
-
-                if isinstance(data, dict):
-                    if "title" in data and "hiringOrganization" in data:
-                        jobs.append(data)
-
-            except:
-                continue
-
-        return jobs
-
     def run(self):
 
         jobs = []
 
-        result = self.app.scrape_url(
-            self.url,
-            formats=["markdown"]
-        )
+        try:
 
-        content = result.markdown.lower()
+            # ---------------------------------
+            # SINGLE COMPANY PAGE SCRAPE
+            # ---------------------------------
+            result = self.app.scrape_url(
+                self.url,
+                formats=["markdown"]
+            )
 
-        # -----------------------------
-        # QUICK GLOBAL CHECK (no regex filtering yet)
-        # -----------------------------
-        job_urls = re.findall(
-            r"https://jobs\.smartrecruiters\.com/[^\)\s]+",
-            content
-        )
+            content = result.markdown
 
-        job_urls = list(set(job_urls))
+            print("\n========== CONTENT PREVIEW ==========\n")
+            print(content[:3000])
 
-        for url in job_urls:
+            # ---------------------------------
+            # EXTRACT SMARTRECRUITERS JOB URLS
+            # ---------------------------------
+            job_urls = re.findall(
+                r"https://jobs\.smartrecruiters\.com/[^\)\s]+",
+                content
+            )
 
-            try:
-                detail = self.app.scrape_url(url, formats=["markdown"])
+            # ---------------------------------
+            # REMOVE DUPLICATES
+            # ---------------------------------
+            job_urls = list(set(job_urls))
 
-                md = detail.markdown
+            print(f"\n[DEBUG] TOTAL JOB URLS FOUND: {len(job_urls)}\n")
 
-                # -----------------------------
-                # LOCATION CHECK (SAFE VERSION)
-                # -----------------------------
-                if not any(x in md.lower() for x in ["chennai", "india"]):
-                    continue
+            # ---------------------------------
+            # RETURN ONLY URLS
+            # ---------------------------------
+            for url in job_urls:
 
-                # -----------------------------
-                # TITLE EXTRACTION (fallback regex)
-                # -----------------------------
-                title_match = re.search(r"\*\*(.*?)\*\*", md)
-                title = title_match.group(1).strip() if title_match else "Unknown Role"
+                cleaned_url = url.strip()
 
                 jobs.append({
-                    "title": title,
-                    "location": "Chennai",
-                    "job_url": url
+                    "job_url": cleaned_url
                 })
 
-                print(f"[MATCHED] {title}")
+                print(f"[JOB URL] {cleaned_url}")
 
-            except Exception as e:
-                print(f"[ERROR] {url} -> {e}")
+        except Exception as e:
+
+            print(f"[FIRECRAWL ERROR] {self.url} -> {str(e)}")
 
         return jobs
