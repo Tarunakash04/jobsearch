@@ -2,36 +2,41 @@
   {
     "company": "Freshworks",
     "url": "https://careers.smartrecruiters.com/Freshworks",
-    "ats": "firecrawl"
+    "ats": "smartrecruiters"
   },
   {
     "company": "Ally",
     "url": "https://careers.smartrecruiters.com/Ally1",
-    "ats": "firecrawl"
+    "ats": "smartrecruiters"
   },
   {
     "company": "K Power Management Services",
     "url": "https://careers.smartrecruiters.com/KPowerManagementServices",
-    "ats": "firecrawl"
+    "ats": "smartrecruiters"
   },
   {
     "company": "Telliant Systems",
     "url": "https://careers.smartrecruiters.com/TelliantSystemsIndiaPrivateLimited",
-    "ats": "firecrawl"
+    "ats": "smartrecruiters"
   },
   {
     "company": "NielsenIQ",
     "url": "https://careers.smartrecruiters.com/NielsenIQ",
-    "ats": "firecrawl"
+    "ats": "smartrecruiters"
   },
   {
     "company": "MicroStrategy",
     "url": "https://careers.smartrecruiters.com/MicroStrategy1",
-    "ats": "firecrawl"
+    "ats": "smartrecruiters"
   },
   {
     "company": "SmartRecruiters",
     "url": "https://careers.smartrecruiters.com/smartrecruiters",
-    "ats": "firecrawl"
+    "ats": "smartrecruiters"
+  },
+  {
+    "company": "Barclays",
+    "url": "https://barclays.wd3.myworkdayjobs.com/en-US/External_Career_Site_Barclays",
+    "ats": "workday"
   }
 ]

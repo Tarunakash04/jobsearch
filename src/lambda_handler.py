@@ -1,11 +1,7 @@
-
 from src.handlers.job_runner import run_pipeline
 
 
 def lambda_handler(event, context):
-    """
-    AWS Lambda entry point for ApplySei pipeline
-    """
 
     print("[ApplySei] Lambda triggered")
 

@@ -1,4 +1,3 @@
-from src.parsers.firecrawl_parser import FirecrawlParser
 from src.filtering.job_filter import JobFilter
 from src.scoring.relevance_engine import RelevanceEngine
 from src.notifications.telegram_notifier import TelegramNotifier
@@ -8,11 +7,12 @@ from src.models.job import Job
 import json
 import os
 
+
 db = DynamoDBClient()
 
 
 # -----------------------------
-# LOAD COMPANIES CONFIG
+# LOAD COMPANIES
 # -----------------------------
 def load_companies():
 
@@ -30,7 +30,7 @@ def load_companies():
 
 
 # -----------------------------
-# NORMALISER
+# NORMALIZER
 # -----------------------------
 def normalize_job(job, company_name, ats_type):
 
@@ -40,31 +40,19 @@ def normalize_job(job, company_name, ats_type):
     return Job(
 
         job_id=job.get("job_url"),
-
         external_job_id=job.get("job_url"),
-
         company=company_name,
-
         source_ats=ats_type,
-
         title=job.get("title"),
-
         location=job.get("location"),
-
         job_url=job.get("job_url"),
 
         posted_date=job.get("posted_date"),
-
         experience_text=None,
-
         short_description=None,
-
         skills=[],
-
         relevancy_score=0,
-
         matched_keywords=[],
-
         scraped_at=""
     )
 
@@ -77,18 +65,13 @@ def run_pipeline():
     companies = load_companies()
 
     filter_engine = JobFilter()
-
     scorer = RelevanceEngine()
+    db = DynamoDBClient()
 
     all_jobs = []
-
     filtered_jobs = []
-
     failed_companies = []
 
-    # -----------------------------
-    # LOOP THROUGH COMPANIES
-    # -----------------------------
     for company in companies:
 
         try:
@@ -96,19 +79,28 @@ def run_pipeline():
             ats_type = company.get("ats", "").lower()
 
             # -----------------------------
-            # ONLY FIRECRAWL SUPPORTED
+            # PARSER ROUTING
             # -----------------------------
-            if ats_type != "firecrawl":
+            if ats_type == "smartrecruiters":
+
+                from src.parsers.smartrecruiters_parser import SmartRecruitersParser
+
+                parser = SmartRecruitersParser(company)
+
+            elif ats_type == "workday":
+
+                from src.parsers.workday_parser import WorkdayParser
+
+                parser = WorkdayParser(company)
+
+            else:
 
                 print(f"[WARNING] Unsupported ATS: {ats_type}")
-
                 continue
 
             # -----------------------------
-            # PARSER
+            # RUN PARSER
             # -----------------------------
-            parser = FirecrawlParser(company)
-
             jobs = parser.run()
 
             print(f"\n[DEBUG] {company['company']} RAW JOBS: {len(jobs)}")
@@ -129,37 +121,25 @@ def run_pipeline():
                     ats_type
                 )
 
-                # -----------------------------
                 # LOCATION FILTER
-                # -----------------------------
                 if not filter_engine.is_location_allowed(job.location):
                     continue
 
-                # -----------------------------
                 # RELEVANCE FILTER
-                # -----------------------------
                 allowed, reason = filter_engine.is_relevant(job)
 
                 if not allowed:
                     continue
 
-                # -----------------------------
                 # SCORE
-                # -----------------------------
                 score_data = scorer.score(job)
 
                 job.relevancy_score = score_data["score"]
-
                 job.matched_keywords = score_data["reasons"]
 
-                print(
-                    f"[DEBUG SCORE] "
-                    f"{job.title} -> {job.relevancy_score}"
-                )
+                print(f"[DEBUG SCORE] {job.title} -> {job.relevancy_score}")
 
-                # -----------------------------
-                # DEDUPE
-                # -----------------------------
+                # DEDUP
                 if db.job_exists(job.job_url):
                     continue
 
@@ -167,10 +147,7 @@ def run_pipeline():
 
         except Exception as e:
 
-            print(
-                f"[ERROR] Failed for "
-                f"{company['company']}: {str(e)}"
-            )
+            print(f"[ERROR] Failed for {company['company']}: {str(e)}")
 
             failed_companies.append({
                 "company": company["company"],
@@ -181,31 +158,17 @@ def run_pipeline():
     # SUMMARY
     # -----------------------------
     print(f"\nRAW JOBS: {len(all_jobs)}")
+    print(f"FILTERED JOBS (pre-final gate): {len(filtered_jobs)}")
 
-    print(
-        f"FILTERED JOBS "
-        f"(pre-final gate): {len(filtered_jobs)}"
-    )
-
-    # -----------------------------
-    # SORT
-    # -----------------------------
     filtered_jobs.sort(
         key=lambda x: x.relevancy_score,
         reverse=True
     )
 
-    # -----------------------------
-    # SCORE DEBUG
-    # -----------------------------
     print("\n[DEBUG SCORE DISTRIBUTION]")
 
     for j in filtered_jobs:
-        print(
-            j.title,
-            j.location,
-            j.relevancy_score
-        )
+        print(j.title, j.location, j.relevancy_score)
 
     # -----------------------------
     # FINAL THRESHOLD
@@ -217,18 +180,11 @@ def run_pipeline():
         if j.relevancy_score >= THRESHOLD
     ]
 
-    # -----------------------------
-    # FINAL DEBUG
-    # -----------------------------
     print("\n[DEBUG FINAL COUNT]", len(final_jobs))
-
-    print(
-        "[DEBUG FINAL IDS]",
-        [j.job_id for j in final_jobs]
-    )
+    print("[DEBUG FINAL IDS]", [j.job_id for j in final_jobs])
 
     # -----------------------------
-    # FORMAT TELEGRAM MESSAGE
+    # TELEGRAM
     # -----------------------------
     def format_jobs(jobs):
 
@@ -249,17 +205,16 @@ def run_pipeline():
 
         return msg
 
-    # -----------------------------
-    # TELEGRAM
-    # -----------------------------
     notifier = TelegramNotifier()
 
     message = format_jobs(final_jobs)
 
+    print("[DEBUG TELEGRAM PAYLOAD SIZE]", len(message))
+
     notifier.send_message(message)
 
     # -----------------------------
-    # SAVE TO DYNAMODB
+    # DYNAMODB SAVE
     # -----------------------------
     for job in final_jobs:
         db.save_job(job)
@@ -268,5 +223,4 @@ def run_pipeline():
 
 
 if __name__ == "__main__":
-
     run_pipeline()

@@ -1,53 +1,130 @@
-import requests
-from bs4 import BeautifulSoup
+import re
+
+from firecrawl import FirecrawlApp
+
+from src.parsers.base_parser import BaseParser
 
 
-class SmartRecruitersParser:
+class SmartRecruitersParser(BaseParser):
 
     def __init__(self, company):
 
-        self.company = company
+        super().__init__(company)
+
+        self.company_name = company["company"]
         self.url = company["url"]
 
+        self.firecrawl = FirecrawlApp()
+
+    # -----------------------------------
+    # MAIN
+    # -----------------------------------
     def run(self):
 
-        response = requests.get(
-            self.url,
-            headers={
-                "User-Agent": "Mozilla/5.0"
-            },
-            timeout=20
-        )
+        try:
 
-        soup = BeautifulSoup(response.text, "html.parser")
+            response = self.firecrawl.scrape_url(
+                self.url,
+                formats=["markdown"]
+            )
+
+            markdown = response.markdown
+
+            print("\n========== CONTENT PREVIEW ==========\n")
+            print(markdown[:5000])
+
+            jobs = self.extract_jobs(markdown)
+
+            return jobs
+
+        except Exception as e:
+
+            print(f"[ERROR] SmartRecruiters parser failed: {str(e)}")
+
+            return []
+
+    # -----------------------------------
+    # EXTRACTION
+    # -----------------------------------
+    def extract_jobs(self, markdown):
 
         jobs = []
 
-        links = soup.find_all("a", href=True)
+        urls = re.findall(
+            r"https://jobs\.smartrecruiters\.com/[^\s)]+",
+            markdown
+        )
 
-        for link in links:
+        urls = list(set(urls))
 
-            href = link["href"]
-            title = link.get_text(strip=True)
+        print(f"\n[DEBUG] TOTAL JOB URLS FOUND: {len(urls)}")
 
-            if "/744" not in href:
-                continue
+        for u in urls:
+            print("[JOB URL]", u)
 
-            if not title:
-                continue
+        for url in urls:
 
-            # Chennai-only filter early
-            page_text = link.parent.get_text(" ", strip=True).lower()
+            slug = url.split("/")[-1]
 
-            if "chennai" not in page_text:
-                continue
+            title = slug.replace("-", " ")
+            title = re.sub(r"\d+", "", title)
+            title = title.strip().title()
 
-            jobs.append({
-                "title": title,
-                "location": "Chennai",
-                "job_url": href
-            })
+            if self.is_relevant(title):
 
-            print(f"[MATCHED] {title}")
+                print(f"[MATCHED] {title}")
+
+                jobs.append({
+                    "title": title,
+                    "location": "Chennai",
+                    "job_url": url
+                })
 
         return jobs
+
+    # -----------------------------------
+    # FILTER
+    # -----------------------------------
+    def is_relevant(self, title):
+
+        text = title.lower()
+
+        positive_keywords = [
+
+            "cloud",
+            "devops",
+            "sre",
+            "platform",
+            "infrastructure",
+            "backend",
+            "software engineer",
+            "systems engineer",
+            "security engineer",
+            "site reliability",
+            "full stack",
+            "java developer",
+            "developer"
+        ]
+
+        negative_keywords = [
+
+            "sales",
+            "marketing",
+            "account executive",
+            "customer success",
+            "business development",
+            "finance",
+            "hr",
+            "recruiter",
+            "consultant"
+        ]
+
+        for k in negative_keywords:
+            if k in text:
+                return False
+
+        for k in positive_keywords:
+            if k in text:
+                return True
+
+        return False

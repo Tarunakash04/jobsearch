@@ -5,148 +5,138 @@ class JobFilter:
 
     def __init__(self):
 
-        # ---------------------------------
-        # HARD REJECT SIGNALS
-        # ---------------------------------
+        # -----------------------------
+        # HARD NON-TECH REJECTS ONLY
+        # -----------------------------
         self.reject_keywords = [
+            "marketing",
             "sales",
             "account executive",
-            "marketing",
-            "recruiter",
-            "human resources",
+            "business development",
             "hr",
+            "human resources",
+            "recruiter",
             "finance",
-            "business analyst",
-            "consultant",
-            "customer success"
+            "accounting",
+            "customer success",
+            "operations manager",
+            "field sales",
+            "partnership manager"
         ]
 
-        # ---------------------------------
-        # SENIORITY REJECTION
-        # ---------------------------------
-        self.seniority_keywords = [
-        "director",
-        "head",
-        "vp",
-        "vice president"
-    ]
-
-        # ---------------------------------
-        # MUST-KEEP CLOUD SIGNALS
-        # ---------------------------------
-        self.keep_keywords = [
-        "cloud",
-        "aws",
-        "azure",
-        "gcp",
-        "devops",
-        "sre",
-        "site reliability",
-        "platform",
-        "infrastructure",
-        "infra",
-        "linux",
-        "network",
-        "security",
-        "cybersecurity",
-        "cloud engineer",
-        "cloud support",
-        "systems engineer",
-        "production engineer",
-        "operations",
-        "technical support",
-        "observability",
-        "kubernetes",
-        "docker",
-        "terraform",
-        "automation",
-        "iac",
-        "monitoring"
-    ]
-
-        # ---------------------------------
-        # FRESHER SIGNALS
-        # ---------------------------------
-        self.fresher_keywords = [
-            "intern",
-            "internship",
-            "new grad",
-            "graduate",
-            "entry level",
-            "associate",
-            "junior",
-            "early career",
-            "fresher"
+        # -----------------------------
+        # TRUE EXEC BLOCK
+        # -----------------------------
+        self.executive_keywords = [
+            "vice president",
+            "chief ",
+            "cto",
+            "ceo",
+            "ciso",
+            "coo"
         ]
 
-    # ---------------------------------
-    # LOCATION FILTER (STRICT CHENNAI ONLY)
-    # ---------------------------------
+        # -----------------------------
+        # ENGINEERING SIGNALS
+        # -----------------------------
+        self.tech_keywords = [
+
+            # cloud / infra
+            "aws",
+            "azure",
+            "gcp",
+            "cloud",
+            "devops",
+            "sre",
+            "site reliability",
+            "platform",
+            "infrastructure",
+            "infra",
+            "terraform",
+            "kubernetes",
+            "docker",
+            "linux",
+
+            # engineering
+            "software engineer",
+            "backend engineer",
+            "full stack engineer",
+            "systems engineer",
+            "data engineer",
+            "network engineer",
+            "security engineer",
+            "developer",
+
+            # generic engineering
+            "engineer",
+            "engineering"
+        ]
+
+    # -----------------------------
+    # LOCATION FILTER
+    # -----------------------------
     def is_location_allowed(self, location: str) -> bool:
 
         if not location:
-            return False
+            return True
 
-        loc = location.lower().replace(" ", "")
+        loc = location.lower()
 
-        allowed_tokens = [
+        if any(x in loc for x in [
+            "india",
             "chennai",
-            "madras"
-        ]
-
-        blocked_tokens = [
-            "remote",
             "bangalore",
-            "bengaluru",
-            "blr",
             "hyderabad",
             "pune",
-            "mumbai",
-            "delhi",
-            "gurgaon",
-            "gurugram",
-            "noida",
-            "kolkata",
-            "kochi",
-            "ahmedabad"
+            "remote"
+        ]):
+            return True
+
+        blocked = [
+            "united states",
+            "usa",
+            "canada",
+            "germany",
+            "uk",
+            "france",
+            "netherlands",
+            "singapore"
         ]
 
-        # reject unwanted cities first
-        if any(token in loc for token in blocked_tokens):
-            return False
+        return not any(x in loc for x in blocked)
 
-        return any(token in loc for token in allowed_tokens)
-
-    # ---------------------------------
-    # MAIN FILTER ENGINE
-    # ---------------------------------
+    # -----------------------------
+    # MAIN FILTER
+    # -----------------------------
     def is_relevant(self, job: Job):
 
         text = f"{job.title} {job.location or ''}".lower()
 
-        # 1. LOCATION FILTER
-        if not self.is_location_allowed(job.location):
-            return False, "Location not Chennai"
+        # -----------------------------
+        # HARD REJECTS
+        # -----------------------------
+        for kw in self.reject_keywords:
+            if kw in text:
+                return False, f"Rejected non-tech role: {kw}"
 
-        # 2. SENIORITY FILTER
-        for keyword in self.seniority_keywords:
-            if keyword in text:
-                return False, f"Senior role filtered: {keyword}"
+        # -----------------------------
+        # EXEC BLOCK
+        # -----------------------------
+        for kw in self.executive_keywords:
+            if kw in text:
+                return False, f"Rejected executive role: {kw}"
 
-        # 3. HARD REJECT FILTER
-        for keyword in self.reject_keywords:
-            if keyword in text:
-                return False, f"Rejected due to keyword: {keyword}"
+        # -----------------------------
+        # TECH SIGNAL
+        # -----------------------------
+        for kw in self.tech_keywords:
+            if kw in text:
+                return True, f"Matched tech keyword: {kw}"
 
-        # 4. FRESHER BOOST
-        for keyword in self.fresher_keywords:
-            if keyword in text:
-                return True, f"Matched fresher signal: {keyword}"
+        # -----------------------------
+        # DEFAULT ALLOW ENGINEERING
+        # -----------------------------
+        if "engineer" in text or "developer" in text:
+            return True, "Generic engineering role"
 
-        # 5. CLOUD / INFRA SIGNALS
-        for keyword in self.keep_keywords:
-            if keyword in text:
-                return True, f"Matched cloud signal: {keyword}"
-
-        # 6. DEFAULT REJECT
-        return False, "No cloud relevance signals found"
+        return False, "No tech relevance"

@@ -8,7 +8,7 @@ class RelevanceEngine:
 
     def score(self, job):
 
-        title = job.title.lower()
+        title = (job.title or "").lower()
 
         domain = self.classifier.classify_domain(title)
         seniority = self.classifier.classify_seniority(title)
@@ -16,72 +16,79 @@ class RelevanceEngine:
         score = 0
         reasons = []
 
-        # ----------------------------
-        # 1. DOMAIN SCORE (CORE INTENT)
-        # ----------------------------
+        # -------------------------------------------------
+        # DOMAIN SCORE
+        # -------------------------------------------------
 
         if domain == "CLOUD_CORE":
             score += 6
-            reasons.append("+6 cloud core domain")
+            reasons.append("+6 cloud core")
+
+        elif domain == "PLATFORM":
+            score += 5
+            reasons.append("+5 platform")
 
         elif domain == "ENGINEERING":
             score += 4
-            reasons.append("+4 engineering domain")
+            reasons.append("+4 engineering")
 
-        elif domain == "PLATFORM":
-            score += 3
-            reasons.append("+3 platform domain")
-
-        elif domain == "UNKNOWN":
-            score -= 2
-            reasons.append("-2 unknown domain")
+        elif domain == "LEADERSHIP":
+            score += 2
+            reasons.append("+2 engineering leadership")
 
         elif domain == "NOISE":
             score -= 10
-            reasons.append("-10 noise domain")
-        
-        elif domain == "LEADERSHIP":
-            score += 3
-            reasons.append("+3 leadership engineering role")
+            reasons.append("-10 noise role")
 
-        # ----------------------------
-        # 2. SENIORITY SCORE (CRITICAL FIX)
-        # ----------------------------
+        else:
+            score -= 2
+            reasons.append("-2 unknown")
+
+        # -------------------------------------------------
+        # SENIORITY
+        # -------------------------------------------------
 
         if seniority == "FRESHER":
             score += 3
-            reasons.append("+3 fresher boost")
+            reasons.append("+3 fresher")
 
         elif seniority == "SENIOR":
-            score += 0
-            reasons.append("+0 senior neutral")
+            score += 1
+            reasons.append("+1 senior")
 
         elif seniority == "MANAGER":
-            if domain == "CLOUD_CORE":
-                score += 1   # allow infra managers
-                reasons.append("+1 allowed cloud leadership")
+
+            if domain in ["CLOUD_CORE", "PLATFORM"]:
+                score += 1
+                reasons.append("+1 infra manager")
             else:
                 score -= 3
-                reasons.append("-3 non-cloud manager penalty")
+                reasons.append("-3 manager penalty")
 
         elif seniority == "STAFF":
-            score -= 3
-            reasons.append("-3 staff penalty")
+            score -= 2
+            reasons.append("-2 staff")
 
-        # ----------------------------
-        # 3. SIGNAL BOOSTERS
-        # ----------------------------
+        # -------------------------------------------------
+        # SIGNAL BOOSTERS
+        # -------------------------------------------------
 
         signals = {
             "aws": 3,
+            "azure": 3,
+            "gcp": 3,
             "cloud": 2,
             "devops": 3,
             "sre": 4,
-            "security": 3,
             "linux": 2,
             "kubernetes": 3,
-            "infra": 1,
-            "platform": 1
+            "docker": 2,
+            "terraform": 3,
+            "platform": 2,
+            "infrastructure": 2,
+            "backend": 1,
+            "java": 1,
+            "python": 1
         }
 
         for k, v in signals.items():
@@ -89,14 +96,11 @@ class RelevanceEngine:
                 score += v
                 reasons.append(f"+{v} {k}")
 
-        # ----------------------------
+        # -------------------------------------------------
         # FINAL BOUNDING
-        # ----------------------------
+        # -------------------------------------------------
 
-        if score < 1:
-            score = 1
-        elif score > 10:
-            score = 10
+        score = max(min(score, 10), -10)
 
         return {
             "score": score,
