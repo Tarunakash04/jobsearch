@@ -72,6 +72,9 @@ def run_pipeline():
     filtered_jobs = []
     failed_companies = []
 
+    location_pass = 0
+    relevance_pass = 0
+
     for company in companies:
 
         try:
@@ -92,6 +95,12 @@ def run_pipeline():
                 from src.parsers.workday_parser import WorkdayParser
 
                 parser = WorkdayParser(company)
+
+            elif ats_type == "greenhouse":
+
+                from src.parsers.greenhouse_parser import GreenhouseParser
+
+                parser = GreenhouseParser(company)
 
             else:
 
@@ -125,11 +134,15 @@ def run_pipeline():
                 if not filter_engine.is_location_allowed(job.location):
                     continue
 
+                location_pass += 1
+
                 # RELEVANCE FILTER
                 allowed, reason = filter_engine.is_relevant(job)
 
                 if not allowed:
                     continue
+
+                relevance_pass += 1
 
                 # SCORE
                 score_data = scorer.score(job)
@@ -160,6 +173,26 @@ def run_pipeline():
     print(f"\nRAW JOBS: {len(all_jobs)}")
     print(f"FILTERED JOBS (pre-final gate): {len(filtered_jobs)}")
 
+    from collections import Counter
+
+    locations = Counter()
+
+    for job in all_jobs:
+
+        location = None
+
+        if isinstance(job, Job):
+            location = job.location
+        else:
+            location = job.get("location")
+
+        locations[location or "EMPTY"] += 1
+
+    print("\nTOP 100 LOCATIONS")
+
+    for loc, count in locations.most_common(100):
+        print(f"{count:4} | {loc}")
+
     filtered_jobs.sort(
         key=lambda x: x.relevancy_score,
         reverse=True
@@ -173,7 +206,7 @@ def run_pipeline():
     # -----------------------------
     # FINAL THRESHOLD
     # -----------------------------
-    THRESHOLD = 4
+    THRESHOLD = 6
 
     final_jobs = [
         j for j in filtered_jobs

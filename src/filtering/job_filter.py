@@ -6,7 +6,7 @@ class JobFilter:
     def __init__(self):
 
         # -----------------------------
-        # HARD NON-TECH REJECTS ONLY
+        # HARD NON-TECH REJECTS
         # -----------------------------
         self.reject_keywords = [
             "marketing",
@@ -21,11 +21,17 @@ class JobFilter:
             "customer success",
             "operations manager",
             "field sales",
-            "partnership manager"
+            "partnership manager",
+            "talent acquisition",
+            "people operations",
+            "customer support representative",
+            "legal",
+            "counsel",
+            "attorney"
         ]
 
         # -----------------------------
-        # TRUE EXEC BLOCK
+        # EXECUTIVE BLOCK
         # -----------------------------
         self.executive_keywords = [
             "vice president",
@@ -37,39 +43,65 @@ class JobFilter:
         ]
 
         # -----------------------------
+        # SENIORITY BLOCK
+        # -----------------------------
+        self.seniority_keywords = [
+            "senior",
+            "staff",
+            "principal",
+            "lead",
+            "manager",
+            "director",
+            "head ",
+            "head of",
+            "architect"
+        ]
+
+        # -----------------------------
         # ENGINEERING SIGNALS
         # -----------------------------
         self.tech_keywords = [
 
-            # cloud / infra
+            # cloud
+            "cloud",
             "aws",
             "azure",
             "gcp",
-            "cloud",
+
+            # infra
+            "infrastructure",
+            "infra",
+            "platform",
+
+            # devops / sre
             "devops",
             "sre",
             "site reliability",
-            "platform",
-            "infrastructure",
-            "infra",
+
+            # tooling
             "terraform",
             "kubernetes",
             "docker",
             "linux",
+            "ansible",
+
+            # security
+            "security engineer",
 
             # engineering
             "software engineer",
             "backend engineer",
-            "full stack engineer",
             "systems engineer",
-            "data engineer",
             "network engineer",
-            "security engineer",
-            "developer",
+            "data engineer",
+            "platform engineer",
+            "cloud engineer",
+            "devops engineer",
+            "site reliability engineer",
 
-            # generic engineering
+            # generic
             "engineer",
-            "engineering"
+            "developer"
         ]
 
     # -----------------------------
@@ -78,32 +110,19 @@ class JobFilter:
     def is_location_allowed(self, location: str) -> bool:
 
         if not location:
-            return True
+            return False
 
         loc = location.lower()
 
-        if any(x in loc for x in [
-            "india",
+        allowed_locations = [
             "chennai",
-            "bangalore",
-            "hyderabad",
-            "pune",
-            "remote"
-        ]):
-            return True
-
-        blocked = [
-            "united states",
-            "usa",
-            "canada",
-            "germany",
-            "uk",
-            "france",
-            "netherlands",
-            "singapore"
+            "tamil nadu"
         ]
 
-        return not any(x in loc for x in blocked)
+        return any(
+            keyword in loc
+            for keyword in allowed_locations
+        )
 
     # -----------------------------
     # MAIN FILTER
@@ -113,18 +132,25 @@ class JobFilter:
         text = f"{job.title} {job.location or ''}".lower()
 
         # -----------------------------
-        # HARD REJECTS
+        # HARD NON-TECH REJECTS
         # -----------------------------
         for kw in self.reject_keywords:
             if kw in text:
                 return False, f"Rejected non-tech role: {kw}"
 
         # -----------------------------
-        # EXEC BLOCK
+        # EXECUTIVE BLOCK
         # -----------------------------
         for kw in self.executive_keywords:
             if kw in text:
                 return False, f"Rejected executive role: {kw}"
+
+        # -----------------------------
+        # SENIORITY BLOCK
+        # -----------------------------
+        for kw in self.seniority_keywords:
+            if kw in text:
+                return False, f"Rejected senior role: {kw}"
 
         # -----------------------------
         # TECH SIGNAL
@@ -134,7 +160,7 @@ class JobFilter:
                 return True, f"Matched tech keyword: {kw}"
 
         # -----------------------------
-        # DEFAULT ALLOW ENGINEERING
+        # FALLBACK
         # -----------------------------
         if "engineer" in text or "developer" in text:
             return True, "Generic engineering role"

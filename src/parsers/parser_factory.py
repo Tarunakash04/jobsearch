@@ -10,6 +10,8 @@ class ParserFactory:
     @staticmethod
     def get_parser(company):
 
+        print("[DEBUG] PARSER FACTORY LOADED")
+
         ats = company.get("ats", "").lower()
 
         mapping = {
