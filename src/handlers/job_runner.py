@@ -136,7 +136,7 @@ def run_pipeline():
 
                 location_pass += 1
 
-                # RELEVANCE FILTER
+                                # RELEVANCE FILTER
                 allowed, reason = filter_engine.is_relevant(job)
 
                 if not allowed:
@@ -149,8 +149,6 @@ def run_pipeline():
 
                 job.relevancy_score = score_data["score"]
                 job.matched_keywords = score_data["reasons"]
-
-                print(f"[DEBUG SCORE] {job.title} -> {job.relevancy_score}")
 
                 # DEDUP
                 if db.job_exists(job.job_url):
