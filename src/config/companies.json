@@ -4,5 +4,11 @@
     "ats": "workday",
     "career_base_url": "https://barclays.wd3.myworkdayjobs.com/en-US/External_Career_Site_Barclays",
     "api_url": "https://barclays.wd3.myworkdayjobs.com/wday/cxs/barclays/External_Career_Site_Barclays/jobs"
+  },
+  {
+    "company": "Comcast",
+    "ats": "workday",
+    "career_base_url": "https://comcast.wd5.myworkdayjobs.com/Comcast_Careers",
+    "api_url": "https://comcast.wd5.myworkdayjobs.com/wday/cxs/comcast/Comcast_Careers/jobs"
   }
 ]

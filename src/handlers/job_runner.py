@@ -114,9 +114,6 @@ def run_pipeline():
 
             print(f"\n[DEBUG] {company['company']} RAW JOBS: {len(jobs)}")
 
-            if jobs:
-                print("[DEBUG SAMPLE]", jobs[0])
-
             all_jobs.extend(jobs)
 
             # -----------------------------
@@ -169,27 +166,9 @@ def run_pipeline():
     # SUMMARY
     # -----------------------------
     print(f"\nRAW JOBS: {len(all_jobs)}")
+    print(f"LOCATION PASS: {location_pass}")
+    print(f"RELEVANCE PASS: {relevance_pass}")
     print(f"FILTERED JOBS (pre-final gate): {len(filtered_jobs)}")
-
-    from collections import Counter
-
-    locations = Counter()
-
-    for job in all_jobs:
-
-        location = None
-
-        if isinstance(job, Job):
-            location = job.location
-        else:
-            location = job.get("location")
-
-        locations[location or "EMPTY"] += 1
-
-    print("\nTOP 100 LOCATIONS")
-
-    for loc, count in locations.most_common(100):
-        print(f"{count:4} | {loc}")
 
     filtered_jobs.sort(
         key=lambda x: x.relevancy_score,
@@ -204,7 +183,7 @@ def run_pipeline():
     # -----------------------------
     # FINAL THRESHOLD
     # -----------------------------
-    THRESHOLD = 6
+    THRESHOLD = 5
 
     final_jobs = [
         j for j in filtered_jobs
@@ -212,8 +191,6 @@ def run_pipeline():
     ]
 
     print("\n[DEBUG FINAL COUNT]", len(final_jobs))
-    print("[DEBUG FINAL IDS]", [j.job_id for j in final_jobs])
-
     # -----------------------------
     # TELEGRAM
     # -----------------------------
