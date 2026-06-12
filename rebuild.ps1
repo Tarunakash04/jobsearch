@@ -5,17 +5,23 @@ Remove-Item lambda_package.zip -ErrorAction SilentlyContinue
 # Create build folder
 New-Item -ItemType Directory -Path build | Out-Null
 
-# Copy source
+# Copy source code
 Copy-Item -Recurse -Path src -Destination build/src
 
-# Install dependencies into build
-pip install requests python-dotenv boto3 -t build
+# Install dependencies into build folder
+pip install requests python-dotenv -t build
 
-# Remove cache
+# Remove cache files
 Get-ChildItem -Path build -Include "__pycache__" -Recurse -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
 Get-ChildItem -Path build -Include "*.pyc" -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
 
-# Create zip
+# Create deployment zip
 Compress-Archive -Path build\* -DestinationPath lambda_package.zip -Force
 
-Write-Output "✅ Build complete: lambda_package.zip"
+# Show final zip size
+$zip = Get-Item lambda_package.zip
+Write-Host ""
+Write-Host "ZIP SIZE:" ([math]::Round($zip.Length / 1MB, 2)) "MB"
+Write-Host ""
+
+Write-Host "✅ Build complete: lambda_package.zip"

@@ -22,6 +22,10 @@ class WorkdayParser:
 
         page_count = 0
 
+        total_jobs = None
+
+        seen_urls = set()
+
         payload = {
             "appliedFacets": {},
             "limit": 20,
@@ -60,6 +64,9 @@ class WorkdayParser:
 
                 data = response.json()
 
+                if total_jobs is None:
+                    total_jobs = data.get("total", 0)
+
                 postings = data.get(
                     "jobPostings",
                     []
@@ -69,6 +76,8 @@ class WorkdayParser:
                     break
 
                 page_count += 1
+
+                jobs_before_page = len(jobs)
 
                 for posting in postings:
 
@@ -101,6 +110,11 @@ class WorkdayParser:
                         + external_path
                     )
 
+                    if full_url in seen_urls:
+                        continue
+
+                    seen_urls.add(full_url)
+
                     job = {
                         "title": title,
                         "location": location,
@@ -109,7 +123,24 @@ class WorkdayParser:
 
                     jobs.append(job)
 
+                jobs_after_page = len(jobs)
+
+                if jobs_after_page == jobs_before_page:
+
+                    print(
+                        "[DEBUG] No new jobs found. "
+                        "Stopping pagination."
+                    )
+
+                    break
+
                 payload["offset"] += payload["limit"]
+
+                if (
+                    total_jobs
+                    and payload["offset"] >= total_jobs
+                ):
+                    break
 
         except Exception as e:
 

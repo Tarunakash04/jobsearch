@@ -4,46 +4,165 @@ from src.models.job import Job
 class JobFilter:
 
     def __init__(self):
-        # hard reject signals (fast elimination)
+
+        # -----------------------------
+        # HARD NON-TECH REJECTS
+        # -----------------------------
         self.reject_keywords = [
+            "marketing",
             "sales",
             "account executive",
-            "marketing",
-            "recruiter",
-            "human resources",
+            "business development",
             "hr",
+            "human resources",
+            "recruiter",
             "finance",
-            "business analyst",
-            "consultant",
-            "customer success"
+            "accounting",
+            "customer success",
+            "operations manager",
+            "field sales",
+            "partnership manager",
+            "talent acquisition",
+            "people operations",
+            "customer support representative",
+            "legal",
+            "counsel",
+            "attorney"
         ]
 
-        # must-keep signals (cloud direction)
-        self.keep_keywords = [
+        # -----------------------------
+        # EXECUTIVE BLOCK
+        # -----------------------------
+        self.executive_keywords = [
+            "vice president",
+            "chief ",
+            "cto",
+            "ceo",
+            "ciso",
+            "coo"
+        ]
+
+        # -----------------------------
+        # SENIORITY BLOCK
+        # -----------------------------
+        self.seniority_keywords = [
+            "senior",
+            "staff",
+            "principal",
+            "lead",
+            "manager",
+            "director",
+            "head ",
+            "head of",
+            "architect"
+        ]
+
+        # -----------------------------
+        # ENGINEERING SIGNALS
+        # -----------------------------
+        self.tech_keywords = [
+
+            # cloud
             "cloud",
             "aws",
+            "azure",
+            "gcp",
+
+            # infra
+            "infrastructure",
+            "infra",
+            "platform",
+
+            # devops / sre
             "devops",
             "sre",
+            "site reliability",
+
+            # tooling
+            "terraform",
+            "kubernetes",
+            "docker",
             "linux",
-            "infrastructure",
-            "network",
-            "security",
-            "platform",
-            "support engineer"
+            "ansible",
+
+            # security
+            "security engineer",
+
+            # engineering
+            "software engineer",
+            "backend engineer",
+            "systems engineer",
+            "network engineer",
+            "data engineer",
+            "platform engineer",
+            "cloud engineer",
+            "devops engineer",
+            "site reliability engineer",
+
+            # generic
+            "engineer",
+            "developer"
         ]
 
-    def is_relevant(self, job: Job) -> bool:
+    # -----------------------------
+    # LOCATION FILTER
+    # -----------------------------
+    def is_location_allowed(self, location: str) -> bool:
+
+        if not location:
+            return False
+
+        loc = location.lower()
+
+        allowed_locations = [
+            "chennai",
+            "tamil nadu"
+        ]
+
+        return any(
+            keyword in loc
+            for keyword in allowed_locations
+        )
+
+    # -----------------------------
+    # MAIN FILTER
+    # -----------------------------
+    def is_relevant(self, job: Job):
+
         text = f"{job.title} {job.location or ''}".lower()
 
-        # HARD REJECT FIRST
-        for keyword in self.reject_keywords:
-            if keyword in text:
-                return False, f"Rejected due to keyword: {keyword}"
+        # -----------------------------
+        # HARD NON-TECH REJECTS
+        # -----------------------------
+        for kw in self.reject_keywords:
+            if kw in text:
+                return False, f"Rejected non-tech role: {kw}"
 
-        # SOFT ACCEPT (cloud signal presence)
-        for keyword in self.keep_keywords:
-            if keyword in text:
-                return True, f"Matched cloud signal: {keyword}"
+        # -----------------------------
+        # EXECUTIVE BLOCK
+        # -----------------------------
+        for kw in self.executive_keywords:
+            if kw in text:
+                return False, f"Rejected executive role: {kw}"
 
-        # fallback: reject unknown noise
-        return False, "No cloud relevance signals found"
+        # -----------------------------
+        # SENIORITY BLOCK
+        # -----------------------------
+        for kw in self.seniority_keywords:
+            if kw in text:
+                return False, f"Rejected senior role: {kw}"
+
+        # -----------------------------
+        # TECH SIGNAL
+        # -----------------------------
+        for kw in self.tech_keywords:
+            if kw in text:
+                return True, f"Matched tech keyword: {kw}"
+
+        # -----------------------------
+        # FALLBACK
+        # -----------------------------
+        if "engineer" in text or "developer" in text:
+            return True, "Generic engineering role"
+
+        return False, "No tech relevance"

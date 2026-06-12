@@ -4,103 +4,165 @@ from src.models.job import Job
 class JobFilter:
 
     def __init__(self):
-        # hard reject signals (fast elimination)
+
+        # -----------------------------
+        # HARD NON-TECH REJECTS
+        # -----------------------------
         self.reject_keywords = [
+            "marketing",
             "sales",
             "account executive",
-            "marketing",
-            "recruiter",
-            "human resources",
+            "business development",
             "hr",
+            "human resources",
+            "recruiter",
             "finance",
-            "business analyst",
-            "consultant",
-            "customer success"
+            "accounting",
+            "customer success",
+            "operations manager",
+            "field sales",
+            "partnership manager",
+            "talent acquisition",
+            "people operations",
+            "customer support representative",
+            "legal",
+            "counsel",
+            "attorney"
         ]
 
-        # must-keep signals (cloud direction)
-        self.keep_keywords = [
+        # -----------------------------
+        # EXECUTIVE BLOCK
+        # -----------------------------
+        self.executive_keywords = [
+            "vice president",
+            "chief ",
+            "cto",
+            "ceo",
+            "ciso",
+            "coo"
+        ]
+
+        # -----------------------------
+        # SENIORITY BLOCK
+        # -----------------------------
+        self.seniority_keywords = [
+            "senior",
+            "staff",
+            "principal",
+            "lead",
+            "manager",
+            "director",
+            "head ",
+            "head of",
+            "architect"
+        ]
+
+        # -----------------------------
+        # ENGINEERING SIGNALS
+        # -----------------------------
+        self.tech_keywords = [
+
+            # cloud
             "cloud",
             "aws",
+            "azure",
+            "gcp",
+
+            # infra
+            "infrastructure",
+            "infra",
+            "platform",
+
+            # devops / sre
             "devops",
             "sre",
+            "site reliability",
+
+            # tooling
+            "terraform",
+            "kubernetes",
+            "docker",
             "linux",
-            "infrastructure",
-            "network",
-            "security",
-            "platform",
-            "support engineer"
+            "ansible",
+
+            # security
+            "security engineer",
+
+            # engineering
+            "software engineer",
+            "backend engineer",
+            "systems engineer",
+            "network engineer",
+            "data engineer",
+            "platform engineer",
+            "cloud engineer",
+            "devops engineer",
+            "site reliability engineer",
+
+            # generic
+            "engineer",
+            "developer"
         ]
 
+    # -----------------------------
+    # LOCATION FILTER
+    # -----------------------------
     def is_location_allowed(self, location: str) -> bool:
+
         if not location:
             return False
 
         loc = location.lower()
 
-        # India cities
-        india_keywords = [
-            "bangalore",
-            "bengaluru",
+        allowed_locations = [
             "chennai",
-            "madras"
+            "tamil nadu"
         ]
 
-        # allowed remote types
-        safe_remote_keywords = [
-            "remote india",
-            "india remote",
-            "remote (india)",
-            "global remote",
-            "worldwide",
-            "anywhere"
-        ]
+        return any(
+            keyword in loc
+            for keyword in allowed_locations
+        )
 
-        # blocked remote regions
-        blocked_remote_keywords = [
-            "united states",
-            "usa",
-            "us",
-            "canada",
-            "uk",
-            "europe"
-        ]
-
-        # 1. direct India city match
-        if any(k in loc for k in india_keywords):
-            return True
-
-        # 2. explicitly India/global safe remote
-        if any(k in loc for k in safe_remote_keywords):
-            return True
-
-        # 3. block country-specific remote (US/Canada etc.)
-        if "remote" in loc and any(k in loc for k in blocked_remote_keywords):
-            return False
-
-        # 4. plain "remote" fallback (unknown remote → allow for now)
-        if "remote" in loc:
-            return True
-
-        return False
-
+    # -----------------------------
+    # MAIN FILTER
+    # -----------------------------
     def is_relevant(self, job: Job):
 
         text = f"{job.title} {job.location or ''}".lower()
 
-        # 1. LOCATION FILTER (FIRST GATE)
-        if not self.is_location_allowed(job.location):
-            return False, "Location not allowed"
+        # -----------------------------
+        # HARD NON-TECH REJECTS
+        # -----------------------------
+        for kw in self.reject_keywords:
+            if kw in text:
+                return False, f"Rejected non-tech role: {kw}"
 
-        # 2. HARD REJECT
-        for keyword in self.reject_keywords:
-            if keyword in text:
-                return False, f"Rejected due to keyword: {keyword}"
+        # -----------------------------
+        # EXECUTIVE BLOCK
+        # -----------------------------
+        for kw in self.executive_keywords:
+            if kw in text:
+                return False, f"Rejected executive role: {kw}"
 
-        # 3. SOFT ACCEPT (positive signal)
-        for keyword in self.keep_keywords:
-            if keyword in text:
-                return True, f"Matched cloud signal: {keyword}"
+        # -----------------------------
+        # SENIORITY BLOCK
+        # -----------------------------
+        for kw in self.seniority_keywords:
+            if kw in text:
+                return False, f"Rejected senior role: {kw}"
 
-        # 4. DEFAULT REJECT
-        return False, "No cloud relevance signals found"
+        # -----------------------------
+        # TECH SIGNAL
+        # -----------------------------
+        for kw in self.tech_keywords:
+            if kw in text:
+                return True, f"Matched tech keyword: {kw}"
+
+        # -----------------------------
+        # FALLBACK
+        # -----------------------------
+        if "engineer" in text or "developer" in text:
+            return True, "Generic engineering role"
+
+        return False, "No tech relevance"

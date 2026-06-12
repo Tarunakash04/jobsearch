@@ -1,4 +1,4 @@
-from src.notifications.telegram_notifier import TelegramNotifier
+from notifications.telegram_notifier import TelegramNotifier
 
 
 def main():

@@ -24,7 +24,7 @@ class TelegramNotifier:
         )
 
     def send_message(self, message: str):
-
+        print("[DEBUG TELEGRAM PAYLOAD SIZE]", len(message))
         payload = {
             "chat_id": self.chat_id,
             "text": message,
