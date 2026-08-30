@@ -84,7 +84,7 @@ Let's start with the technical side.
 The complete architecture of ApplySei:
 
 <a href="Arch_diagram.png">
-  <img src="Arch_diagram.png" alt="ApplySei Architecture" width="700">
+  <img src="Arch_diagram.png" alt="ApplySei Architecture" width="400">
 </a>
 
 At a high level, the system follows this flow:
