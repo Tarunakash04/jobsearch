@@ -82,7 +82,7 @@ Let's start with the technical side.
 The complete architecture of ApplySei:
 
 <a href="Arch_diagram.png">
-  <img src="Arch_diagram.png" alt="ApplySei Architecture" width="100">
+  <img src="Arch_diagram.png" alt="ApplySei Architecture" width="300">
 </a>
 
 At a high level, the system follows this flow:
@@ -256,3 +256,115 @@ Putting everything together:
 **Existing Job → Skip**
 
 The result is a serverless, automated job-discovery pipeline that runs every morning without manual intervention.
+
+# 3. Okay, But Who Runs All This?
+
+We've seen what the code does.
+
+But there's one obvious question:
+
+**Who actually runs the code?**
+
+That's where the AWS services come in.
+
+I didn't want to run the Python script manually every morning. The whole point was to automate my job search, so the infrastructure needed to take care of the execution too.
+
+Here's what each part does, without getting too technical.
+
+## AWS Lambda — The One Doing the Work
+
+**![AWS Lambda Function](Lambda_screenshot.png)**
+
+Think of Lambda as the **computer that runs my code when I need it**.
+
+I don't keep a laptop or server running all day just for ApplySei.
+
+Instead, Lambda runs the Python code, does everything it needs to do, and then stops when the work is finished.
+
+So essentially:
+
+**"Here is my code. Run it when I tell you to."**
+
+That's Lambda.
+
+## EventBridge Scheduler — The Alarm Clock
+
+**![Amazon EventBridge Scheduler](EventBridge_screenshot.png)**
+
+Now we have another problem.
+
+If Lambda only runs when I tell it to, **who tells it to run?**
+
+That's where EventBridge Scheduler comes in.
+
+I configured it as an alarm clock for ApplySei:
+
+**Every day → 8:00 AM → Wake up Lambda**
+
+I don't have to remember to start anything.
+
+The scheduler does it for me.
+
+## DynamoDB — The Memory
+
+**![Amazon DynamoDB](DynamoDB_screenshot.png)**
+
+Now imagine ApplySei finds the same job tomorrow that it found today.
+
+I definitely don't want:
+
+> "Congratulations! Here's the same job you already saw yesterday." 😭
+
+So ApplySei needs a memory.
+
+That's what DynamoDB provides.
+
+It keeps track of the jobs that have already been processed.
+
+When a new job comes in, ApplySei checks:
+
+**"Have I seen this before?"**
+
+If yes → ignore it.
+
+If no → save it and send it to me.
+
+## Telegram — The Messenger
+
+Once ApplySei has finished all the work, I still need to know what it found.
+
+That's where my Telegram bot comes in.
+
+New and relevant jobs are sent directly to me there.
+
+So I don't need to open the system, check a dashboard, or inspect a database.
+
+The system simply tells me:
+
+**"Hey, I found something you might want to look at."**
+
+## Putting It in Simple Terms
+
+The whole infrastructure can basically be thought of as four people working together:
+
+**EventBridge**
+*"It's 8 AM. Time to get to work."*
+
+↓
+
+**Lambda**
+*"Got it. I'll run the code."*
+
+↓
+
+**DynamoDB**
+*"I've seen this job before." / "This one's new."*
+
+↓
+
+**Telegram**
+*"Here's what I found."*
+
+And somewhere in the middle, **Firecrawl goes out and actually looks for the jobs.**
+
+That's the infrastructure behind ApplySei.
