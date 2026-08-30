@@ -1,198 +1,256 @@
-# ApplySei Job Search Pipeline
+# ApplySei
 
-Automates scraping and ranking of cloud-based engineering roles from multiple ATS sources, filters for relevance, sends a daily shortlist to Telegram, and persists seen jobs in DynamoDB to avoid duplicates.
+### *By the Cloud. For the Cloud.*
 
+ApplySei is a personal cloud job-search automation project I built to solve a problem I was experiencing myself.
 
----
+## Why I Built It
 
-## What this repo does
+There were three reasons behind ApplySei.
 
-1. **Loads configured companies/ATS endpoints** from `src/config/companies.json`.
-2. For each company, **runs the matching ATS parser** (Workday / Greenhouse / SmartRecruiters / etc.).
-3. **Normalizes** raw job dicts into a `Job` dataclass.
-4. **Filters** jobs:
-   - Location gate (currently Chennai/Tamil Nadu only)
-   - Rejects obvious non-target roles (sales/marketing/HR/etc.)
-   - Rejects executive/senior leadership keywords
-   - Requires at least one tech keyword match (fallback for generic engineer/developer)
-5. **Scores** jobs using `src/scoring/relevance_engine.py` and `src/scoring/job_classifier.py`.
-6. **Deduplicates** via DynamoDB (`applysei_jobs` table, keyed by `job_url`).
-7. Sends the top matches to Telegram.
-8. Saves accepted jobs to DynamoDB.
+### 1. My previous cloud projects were expensive to keep alive
 
----
+Some of my earlier cloud projects relied on infrastructure that continued to incur costs every month.
 
-## Architecture (high level)
+Eventually, I had to decommission them.
 
-- Entry point: `src/lambda_handler.py`
-- Pipeline orchestration: `src/handlers/job_runner.py`
-- Data model: `src/models/job.py`
-- Filtering: `src/filtering/job_filter.py`
-- Scoring:
-  - `src/scoring/job_classifier.py` (domain + seniority classification)
-  - `src/scoring/relevance_engine.py` (final score + keyword reasons)
-- ATS parsing:
-  - `src/parsers/*_parser.py`
-  - `src/parsers/parser_factory.py` (optional routing)
-- Integrations:
-  - Telegram: `src/notifications/telegram_notifier.py`
-  - DynamoDB: `src/storage/dynamodb_client.py`
+The problem wasn't that those projects weren't useful. They were.
 
----
+But when the main point of a project is to demonstrate cloud infrastructure, keeping that infrastructure running indefinitely just for a portfolio doesn't always make financial sense.
 
-## Project structure
+So I wanted to build something that used cloud infrastructure **because it had a real purpose**, rather than keeping resources alive just to say I had deployed something.
 
-- `src/`
-  - `config/companies.json` – list of target companies and their ATS configuration
-  - `handlers/job_runner.py` – scrape → filter → score → notify → persist
-  - `models/job.py` – `Job` dataclass
-  - `parsers/` – ATS scrapers/extractors
-  - `filtering/` – location + keyword gating
-  - `scoring/` – job classification + scoring logic
-  - `notifications/` – Telegram sender
-  - `storage/` – DynamoDB dedupe + persistence
-  - `utils/` – small helpers (e.g., hashing)
+### 2. The projects themselves were difficult to showcase
 
----
+With my previous cloud projects, the most interesting part wasn't necessarily the application code.
 
-## Configuration
+It was the **infrastructure**.
 
-### 1) `src/config/companies.json`
+There is only so much of that you can demonstrate through a GitHub repository. You can explain what each service does, but the actual project is often the way all those services work together.
 
-This file controls what companies are scraped and which parser to use.
+I wanted to build something where the cloud infrastructure was not just supporting the project.
 
-Each entry includes at least:
-- `company`
-- `ats` (e.g. `workday`, `greenhouse`, `smartrecruiters`)
+**The infrastructure was the project.**
 
-Additional fields are ATS-specific (example: Workday uses fields like `career_base_url` / `api_url`; Greenhouse uses `board_token`).
+And this time, I wanted something I could actually keep running and demonstrate.
 
-> Security note: do not commit ATS API endpoints/keys you wouldn’t want to share publicly. Keep secrets in environment variables or your deployment platform.
+### 3. My job search was painfully inefficient
 
-> Note: there is also a top-level `companies.txt`, but the pipeline uses `src/config/companies.json`.
+While searching for Cloud, AWS, DevOps, SRE, and Infrastructure roles, I was spending a ridiculous amount of time checking career pages manually.
 
----
+And I kept running into the same two problems.
 
-## Required environment variables
+I'd find a bunch of irrelevant jobs.
 
-### Telegram
-Required by `src/notifications/telegram_notifier.py`:
-- `TELEGRAM_BOT_TOKEN`
-- `TELEGRAM_CHAT_ID`
+Or I'd find a role that looked perfect, spend 15–20 minutes going through the job description, analysing it, and deciding whether it was worth applying to...
 
-These must be set in your runtime environment (local or AWS Lambda).
+Only to realise:
 
-### AWS / DynamoDB
-`src/storage/dynamodb_client.py` uses `boto3` and expects AWS credentials in the standard boto3 locations (e.g., IAM role in Lambda or `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` locally).
+**I'd already applied to it.**
 
-- DynamoDB table name: `applysei_jobs`
-- Region in code: `us-west-2`
-- Primary key used for dedupe: `job_url`
+At some point, I thought:
 
----
+> *Why am I manually doing this?*
 
-## How to run locally
+So I decided to build something that could do the repetitive part for me.
 
-### 1) Install dependencies
+Something that could find jobs, analyse them, score them based on relevance, remember what I'd already seen, and send the new ones directly to me.
 
-```bash
-pip install -r requirements.txt
-```
+That became **ApplySei**.
 
-### 2) Set env vars
+## What ApplySei Does
 
-- `TELEGRAM_BOT_TOKEN`
-- `TELEGRAM_CHAT_ID`
-- plus AWS credentials for DynamoDB access
+Every morning, ApplySei automatically searches for job opportunities from configured sources.
 
-### 3) Run the pipeline
+It then analyses the jobs, filters out irrelevant roles, scores the remaining opportunities based on keyword relevance, checks whether I've already seen the job, and sends new relevant opportunities directly to my Telegram.
 
-```bash
-python src/lambda_handler.py
-```
+In other words:
 
-or directly:
+**I stopped searching for jobs manually and built something to search for them instead.**
 
-```bash
-python -c "from src.handlers.job_runner import run_pipeline; run_pipeline()"
-```
+**# 2. How It Works — The Technical Side**
 
----
+There are two ways to understand how ApplySei works:
 
-## AWS deployment & scheduling
+1. **The technical side** — how the different services and components work together.
+2. **The simple side** — what actually happens when ApplySei runs, without all the technical terminology.
 
-### AWS services used
-- **AWS Lambda**: runs the job scraping + filtering + scoring pipeline (triggered by EventBridge).
-- **Amazon EventBridge Scheduler (cron)**: schedules the Lambda to run **once a day at 8:00 AM**.
-- **Amazon DynamoDB**: stores job records and performs deduplication in the `applysei_jobs` table.
-- **Amazon CloudWatch Logs/metrics**: captures Lambda logs (prints/exceptions) so you can monitor executions and troubleshoot failures.
+Let's start with the technical side.
 
-### Build / deployment (AWS Lambda)
+**## Overall Architecture**
 
-Architecture diagram:
-- `Architecture.png`
+The complete architecture of ApplySei:
 
-The repo includes a PowerShell script to package the code:
+![ApplySei Architecture](Arch_diagram.png)
 
+At a high level, the system follows this flow:
 
+**EventBridge Scheduler → AWS Lambda → Python Pipeline → Firecrawl → Job Analysis & Scoring → DynamoDB + Telegram**
 
-- `rebuild.ps1`
-  - cleans `build/`
-  - copies `src/` into `build/src/`
-  - installs a minimal set of dependencies into `build/`
-  - creates `lambda_package.zip`
+### Amazon EventBridge Scheduler
 
-Run:
+Amazon EventBridge Scheduler is responsible for automatically starting the pipeline.
 
-```powershell
-.trebuild.ps1
-```
+It is configured to trigger the AWS Lambda function every day at **8:00 AM**.
 
-Upload `lambda_package.zip` to your Lambda deployment.
+This means the entire job-search process starts automatically without me having to run anything manually.
+
+### AWS Lambda
+
+AWS Lambda runs the main ApplySei Python application.
+
+When EventBridge triggers the function, Lambda starts the complete pipeline — from fetching jobs to analysing, scoring, storing, and notifying.
+
+Using Lambda also means I don't need to keep a server running 24/7 for a process that only needs to run once a day.
+
+### Python
+
+Python contains the core application logic behind ApplySei.
+
+It coordinates the different stages of the pipeline and is responsible for:
+
+* Processing the data returned by Firecrawl
+* Analysing job titles and descriptions
+* Applying keyword-based filtering
+* Calculating relevance scores
+* Structuring the job information
+* Checking DynamoDB for previously processed jobs
+* Sending notifications to Telegram
+
+### Firecrawl
+
+Firecrawl is responsible for the **job discovery and data extraction** stage.
+
+It crawls the configured career pages and fetches the available job information and job descriptions.
+
+Once the data is returned to the Python application, Firecrawl's job is done.
+
+**Firecrawl collects the data. ApplySei decides what to do with it.**
 
 ---
 
-## Filtering + scoring behavior (summary)
+**## Inside the Job Processing Pipeline**
 
-### Location filter
-- Accepts jobs where `location` contains: `chennai` or `tamil nadu`
-- Jobs without `location` are rejected.
+The next diagram shows what happens after Firecrawl returns the job data:
 
-### Relevance filter
-- Rejects roles containing non-target keywords (marketing/sales/HR/etc.)
-- Rejects executive-ish titles (VP/CEO/CTO/CISO/COO keywords)
-- Rejects high-seniority leadership keywords (lead/manager/director/head/architect, etc.)
-- Accepts jobs that match at least one tech keyword
-- Fallback: if the title contains `engineer` or `developer`, it may pass
+![ApplySei Job Processing Pipeline](Firecrawl.png)
 
-### Scoring
-- `JobClassifier` classifies domain (cloud core / platform / engineering / leadership / noise)
-- `JobClassifier` classifies seniority (fresher/mid/senior/manager/staff/executive)
-- `RelevanceEngine` computes a bounded score (clamped to `[-10, 10]`) based on:
-  - domain + seniority base adjustments
-  - keyword boosts
-  - keyword penalties
+The retrieved job information is passed to the Python application, where the actual analysis and scoring takes place.
 
-### Final threshold
-- Only jobs with `relevancy_score >= 5` are included in the Telegram message.
+### Job Analysis
+
+The application analyses the job title and job description to determine how relevant the opportunity is to the types of roles I'm looking for.
+
+The system is primarily focused on roles around:
+
+* Cloud
+* AWS
+* DevOps
+* SRE
+* Infrastructure
+* Platform Engineering
+
+### Keyword-Based Ranking & Scoring
+
+ApplySei uses a **rule-based scoring system** rather than an LLM to rank jobs.
+
+Relevant keywords contribute positively to the score, while keywords associated with unwanted domains or roles contribute negatively.
+
+In simple terms:
+
+**Relevant keyword → + score**
+
+**Off-domain keyword → − score**
+
+This allows the system to determine whether a job is worth sending to me based on explicit and understandable rules.
+
+I intentionally chose this approach because the scoring should be:
+
+* Predictable
+* Explainable
+* Cheap to operate
+* Easy to modify
+
+### Structured Job Data
+
+Once the job has been analysed and scored, the relevant information is structured into a consistent format.
+
+This allows the same downstream process to handle jobs regardless of where they originally came from.
+
+The structured job data is then sent to two places.
 
 ---
 
-## Tests
+**## Amazon DynamoDB**
 
-- `src/test_telegram.py` – sends a Telegram test message (requires Telegram env vars)
-- `test.py` – quick outbound request example (Workday API call)
+Amazon DynamoDB acts as the persistent storage layer for ApplySei.
+
+The database stores the jobs that have already been processed.
+
+This gives ApplySei a memory of what it has seen before.
+
+When the same job is fetched again during a future run, the application checks DynamoDB before sending a notification.
+
+**Already stored → Skip it**
+
+**New job → Store it and continue**
+
+This prevents the same job from repeatedly appearing in my Telegram notifications.
 
 ---
 
-## Notes / caveats
+**## Telegram Bot API**
 
-- ATS parsing quality varies by source; some parsers scrape HTML/markdown and rely on regex extraction.
-- DynamoDB dedupe is currently based on `job_url`.
-- If a parser fails for a company, the pipeline continues and records the company error in `failed_companies`.
+Telegram is the final delivery layer.
+
+When ApplySei finds a new and relevant job, the structured job information is sent directly to my Telegram bot.
+
+This means that instead of opening multiple career pages every morning, I receive the relevant new opportunities directly.
 
 ---
 
-## License
+**## The Complete Technical Flow**
 
-This project is licensed under the MIT License. See the included `LICENSE` file for full terms.
+Putting everything together:
+
+**EventBridge Scheduler**
+
+↓
+
+**AWS Lambda**
+
+↓
+
+**Python Application**
+
+↓
+
+**Firecrawl**
+
+↓
+
+**Job Data + Job Description**
+
+↓
+
+**Job Analysis**
+
+↓
+
+**Keyword-Based Ranking & Scoring**
+
+↓
+
+**Structured Job Data**
+
+↓
+
+**DynamoDB Check**
+
+↓
+
+**New Job → Store + Send to Telegram**
+
+**Existing Job → Skip**
+
+The result is a serverless, automated job-discovery pipeline that runs every morning without manual intervention.
